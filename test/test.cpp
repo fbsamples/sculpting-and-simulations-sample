@@ -4,20 +4,26 @@
 // This source code is licensed under the BSD - style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include "windows.h"
-#include "stdio.h"
-#include "assert.h"
-#include <vector>
+#include <cmath>
 #include "mathlib.h"
-
-using namespace std;
 
 namespace deformation
 {
 #include "../code/deformation.h"
 };
 
+#include "stdio.h"
+#include "assert.h"
+#include <vector>
+
+using namespace std;
+
 using uint = unsigned int;
+
+float min(float a, float b) { return a < b ? a : b; };
+float max(float a, float b) { return a > b ? a : b; };
+int min(int a, int b) { return a < b ? a : b; };
+int max(int a, int b) { return a > b ? a : b; };
 
 struct Vertex
 {
@@ -193,24 +199,35 @@ struct DataFromPoses
     vector<deformation::Motion> motions;
     vector<deformation::Deformation> deformations;
     vector<deformation::Kelvinlet> kelvinlets;
-    deformation::Material material;
 };
 
 DataFromPoses buildDataFromPoses(Stroke stroke)
 {
     DataFromPoses d;
 
-    d.material.stiffness = stroke.stiffness;
-    d.material.compressibility = stroke.compressibility;
-
     for (uint i = 0; i < stroke.poses.size() - 1; i++)
     {
         d.motions.push_back(deformation::buildMotion(stroke.poses[i], stroke.poses[i + 1]));
         d.deformations.push_back(deformation::buildDeformation(d.motions[i]));
-        d.kelvinlets.push_back(deformation::buildKelvinlet(d.deformations[i], d.material, stroke.outerRadius));
+        d.kelvinlets.push_back(deformation::buildKelvinlet(d.deformations[i], stroke.stiffness, stroke.compressibility, stroke.outerRadius));
     }
 
     return d;
+}
+
+// Calculate falloff. When the position is inside the inner radius, the falloff is 1;
+// when the position is outside the outer radius, the falloff is 0. In between, the
+// falloff smoothly falls off from 1 to 0.
+float calcFalloff(vec3 position, vec3 origin, float innerRadius, float outerRadius)
+{
+	innerRadius = min(innerRadius, outerRadius - 0.000001f);
+
+	float d = distance(position, origin);
+	float t = (d - innerRadius) / (outerRadius - innerRadius);
+	float falloff = 1 - saturate(t);
+	falloff = smoothstep(0.0f, 1.0f, falloff);
+
+	return falloff;
 }
 
 int main()
@@ -227,10 +244,10 @@ int main()
     // and write out the results as testresult*.obj
 
     // --------------------
-    // This demonstrates deforming with a start and end pose, like Medium.
+    // This demonstrates deforming with a start and end pose, like Medium's move tool.
     // This takes a stream of recorded poses, then uses the first and last one.
     // It uses adaptive integration to integrate between these two poses.
-    // This deforms with a single affine transform.
+    // The deformation style is nonelastic (an affine transformation).
     // In Medium, when using the nonelastic Move Tool, this runs every frame
     // in a vertex shader. Here, we're doing it on the CPU as an example.
     if (true)
@@ -247,19 +264,26 @@ int main()
 
         for (uint i = 0; i < mesh.vertices.size(); i++)
         {
-            mesh.vertices[i] = deformation::deformNonElastic(mesh.vertices[i], deformation, stroke.innerRadius, stroke.outerRadius, maxerror);
+			float falloff = calcFalloff(mesh.vertices[i], deformation.origin, stroke.innerRadius, stroke.outerRadius);
+
+			if (falloff > 0.0f)
+			{
+				float endtime = lerp(deformation.time, deformation.time + deformation.dt, falloff);
+				float adjustedmaxerror = maxerror * (endtime - deformation.time);
+				mesh.vertices[i] = IntegrateNonElastic_AdaptiveBS32(mesh.vertices[i], deformation.time, endtime, adjustedmaxerror, deformation);
+			}
         }
 
         writeobj("data\\testresult0.obj", mesh);
-        debugprintf("test0 success\n");
+        printf("test0 success\n");
     }
 
     // --------------------
-    // This demonstrates deforming with a start and end pose, like Medium.
+    // This demonstrates deforming with a start and end pose, like Medium's move tool.
     // This uses two streams of recorded poses, one for each hand.
     // It then uses the first and last pose for each hand.
     // It uses adaptive integration to integrate between these two poses.
-    // This deforms with two blended affine transforms.
+    // This deforms with two blended nonelastic deformers.
     // In Medium, when using the nonelastic Move Tool, this runs every frame
     // in a vertex shader. Here, we're doing it on the CPU as an example.
     if (true)
@@ -280,13 +304,41 @@ int main()
         deformation::Motion lefthandmotion = buildMotion(strokelefthand.poses[0], strokelefthand.poses[1]);
         deformation::Deformation lefthanddeformation = buildDeformation(lefthandmotion);
 
-        for (uint i = 0; i < mesh.vertices.size(); i++)
-        {
-            mesh.vertices[i] = deformation::deformBlendedNonElastic(mesh.vertices[i], righthanddeformation, lefthanddeformation, strokerighthand.innerRadius, strokerighthand.outerRadius, maxerror);
-        }
+		for (uint i = 0; i < mesh.vertices.size(); i++)
+		{
+			float falloff0 = calcFalloff(mesh.vertices[i], righthanddeformation.origin, strokerighthand.innerRadius, strokerighthand.outerRadius);
+			float falloff1 = calcFalloff(mesh.vertices[i], lefthanddeformation.origin, strokelefthand.innerRadius, strokelefthand.outerRadius);
+
+			if (falloff0 > 0.0f || falloff1 > 0.0f)
+			{
+				float endtime = lerp(righthanddeformation.time, righthanddeformation.time + righthanddeformation.dt, min(falloff0, falloff1));
+				float adjustedmaxerror = maxerror * (endtime - righthanddeformation.time);
+				mesh.vertices[i] = IntegrateNonElasticTwoDeformers_AdaptiveBS32(mesh.vertices[i], righthanddeformation.time, endtime, adjustedmaxerror, righthanddeformation, lefthanddeformation);
+
+				// when the falloff of one deformer is less than the falloff of the second deformer,
+				// then we need to integrate from the minfalloff to maxfalloff using the deformer
+				// with the larger falloff
+				if (falloff0 != falloff1)
+				{
+					deformation::Deformation deformation;
+					float starttime = endtime;
+					if (falloff0 > falloff1)
+					{
+						deformation = righthanddeformation;
+					}
+					else {
+						deformation = lefthanddeformation;
+					}
+					deformation.origin = deformation.origin + deformation.linearVelocity*(endtime - deformation.time);
+					endtime = lerp(deformation.time, deformation.time + deformation.dt, max(falloff0, falloff1));
+					float adjustedmaxerror = maxerror * (endtime - deformation.time);
+					mesh.vertices[i] = IntegrateNonElastic_AdaptiveBS32(mesh.vertices[i], starttime, endtime, adjustedmaxerror, deformation);
+				}
+			}
+		}
 
         writeobj("data\\testresult1.obj", mesh);
-        debugprintf("test1 success\n");
+        printf("test1 success\n");
     }
 
     // --------------------
@@ -308,18 +360,15 @@ int main()
 
         deformation::Motion motion = buildMotion(stroke.poses[0], stroke.poses[1]);
         deformation::Deformation deformation = buildDeformation(motion);
-        deformation::Material material;
-        material.stiffness = stroke.stiffness;
-        material.compressibility = stroke.compressibility;
-        deformation::Kelvinlet kelvinlet = buildKelvinlet(deformation, material, stroke.outerRadius);
+        deformation::Kelvinlet kelvinlet = buildKelvinlet(deformation, stroke.stiffness, stroke.compressibility, stroke.outerRadius);
 
         for (uint i = 0; i < mesh.vertices.size(); i++)
         {
-            mesh.vertices[i] = deformation::deformKelvinlet(mesh.vertices[i], kelvinlet, material, stroke.outerRadius, maxerror);
-        }
+			mesh.vertices[i] = IntegrateKelvinlets_AdaptiveBS32(mesh.vertices[i], kelvinlet.time, kelvinlet.time + kelvinlet.dt, maxerror*kelvinlet.dt, kelvinlet);
+		}
 
         writeobj("data\\testresult2.obj", mesh);
-        debugprintf("test2 success\n");
+        printf("test2 success\n");
     }
 
     // --------------------
@@ -342,34 +391,32 @@ int main()
         strokerighthand.poses = buildStartEndPoses(strokerighthand.poses);
         strokelefthand.poses = buildStartEndPoses(strokelefthand.poses);
 
-        deformation::Material material;
-        material.stiffness = strokerighthand.stiffness;
-        material.compressibility = strokerighthand.compressibility;
-
         deformation::Motion motionrighthand = buildMotion(strokerighthand.poses[0], strokerighthand.poses[1]);
         deformation::Deformation deformationrighthand = buildDeformation(motionrighthand);
-        deformation::Kelvinlet kelvinletrighthand = buildKelvinlet(deformationrighthand, material, strokerighthand.outerRadius);
+        deformation::Kelvinlet kelvinletrighthand = buildKelvinlet(deformationrighthand, strokerighthand.stiffness, strokerighthand.compressibility, strokerighthand.outerRadius);
 
         deformation::Motion motionlefthand = buildMotion(strokelefthand.poses[0], strokelefthand.poses[1]);
         deformation::Deformation deformationlefthand = buildDeformation(motionlefthand);
-        deformation::Kelvinlet kelvinletlefthand = buildKelvinlet(deformationlefthand, material, strokelefthand.outerRadius);
+        deformation::Kelvinlet kelvinletlefthand = buildKelvinlet(deformationlefthand, strokelefthand.stiffness, strokelefthand.compressibility, strokelefthand.outerRadius);
 
         for (uint i = 0; i < mesh.vertices.size(); i++)
         {
-            mesh.vertices[i] = deformation::deformBlendedKelvinlets(mesh.vertices[i], kelvinletrighthand, kelvinletlefthand, material, strokerighthand.outerRadius, maxerror);
-        }
+			mesh.vertices[i] = IntegrateKelvinletsTwoDeformers_AdaptiveBS32(mesh.vertices[i], kelvinletrighthand.time, kelvinletrighthand.time + kelvinletrighthand.dt, maxerror*kelvinletrighthand.dt, kelvinletrighthand, kelvinletlefthand);
+		}
 
         writeobj("data\\testresult3.obj", mesh);
-        debugprintf("test3 success\n");
+        printf("test3 success\n");
     }
 
     // --------------------
     // This demonstrates deforming with motion capture data.
     // This was recorded in Medium by writing out the Pose structure every frame.
-    // This deforms with a single affine transform.
+    // This deforms with a single nonelastic deformer.
+	// This does a single RK4 integration per pair of keyframes.
+	//
     // You probably don't want to do this on the CPU like this. Instead of accumulating
-    // keyframe poses and applying them all at once, instead do a single Runge-Kutta
-    // integration for that frame. That will be much faster than this-- even cheaper on the GPU
+    // keyframe poses over time and applying them all at once, instead do a single Runge-Kutta
+    // integration each frame. That will be much faster than this-- even cheaper on the GPU
     // than the adaptive integrators. However, this achieves the same results.
     if (true)
     {
@@ -381,17 +428,39 @@ int main()
 
         for (uint i = 0; i < mesh.vertices.size(); i++)
         {
-            mesh.vertices[i] = deformation::deformNonElastic(mesh.vertices[i], data.deformations, stroke.innerRadius, stroke.outerRadius, maxerror);
-        }
+			float falloff = calcFalloff(mesh.vertices[i], data.deformations[0].origin, stroke.innerRadius, stroke.outerRadius);
+
+			if (falloff > 0.0f)
+			{
+				float starttime = data.deformations[0].time;
+				float endtime = data.deformations[data.deformations.size() - 1].time + data.deformations[data.deformations.size() - 1].dt;
+
+				float t = starttime;
+				float maxt = lerp(starttime, endtime, falloff);
+				int frame = 0;
+				while (t < maxt)
+				{
+					float dt = data.deformations[frame].dt;
+					dt = min(maxt - t, dt);
+
+					mesh.vertices[i] = IntegrateNonElastic_RungeKutta(mesh.vertices[i], t, t + dt, data.deformations[frame]);
+
+					frame++;
+					t += dt;
+				}
+			}
+		}
 
         writeobj("data\\testresult4.obj", mesh);
-        debugprintf("test4 success\n");
+        printf("test4 success\n");
     }
 
     // --------------------
     // This demonstrates deforming with motion capture data.
     // Two streams of poses were recorded in Medium, one for each hand.
-    // This deforms using two blended affine transforms.
+    // This deforms using two blended nonelastic.
+	// This does a single RK4 integration per pair of keyframes.
+	//
     // You probably don't want to do this on the CPU like this. Instead of accumulating
     // keyframe poses and applying them all at once, instead do a single Runge-Kutta
     // integration for that frame. That will be much faster than this-- even cheaper on the GPU
@@ -409,17 +478,63 @@ int main()
 
         for (uint i = 0; i < mesh.vertices.size(); i++)
         {
-            mesh.vertices[i] = deformation::deformBlendedNonElastic(mesh.vertices[i], datarighthand.deformations, datalefthand.deformations, strokerighthand.innerRadius, strokerighthand.outerRadius, maxerror);
-        }
+			float falloff0 = calcFalloff(mesh.vertices[i], datarighthand.deformations[0].origin, strokerighthand.innerRadius, strokerighthand.outerRadius);
+			float falloff1 = calcFalloff(mesh.vertices[i], datalefthand.deformations[0].origin, strokelefthand.innerRadius, strokelefthand.outerRadius);
+
+			if (falloff0 > 0 || falloff1 > 0)
+			{
+				float starttime = datarighthand.deformations[0].time;
+				float endtime = datarighthand.deformations[datarighthand.deformations.size() - 1].time + datarighthand.deformations[datarighthand.deformations.size() - 1].dt;
+
+				float minfalloff = min(falloff0, falloff1);
+
+				float t = starttime;
+				float maxt = lerp(starttime, endtime, minfalloff);
+				int frame = 0;
+				while (t < maxt)
+				{
+					float dt = datarighthand.deformations[frame].dt;
+					dt = min(maxt - t, dt);
+
+					mesh.vertices[i] = IntegrateNonElasticTwoDeformers_RungeKutta(mesh.vertices[i], t, t + dt, datarighthand.deformations[frame], datarighthand.deformations[frame]);
+
+					frame++;
+					t += dt;
+				}
+
+				// when the falloff of one deformer is less than the falloff of the second deformer,
+				// then we need to integrate from the minfalloff to maxfalloff using the deformer
+				// with the larger falloff
+				frame = max(frame - 1, 0);
+				float maxfalloff = max(falloff0, falloff1);
+				maxt = lerp(starttime, endtime, maxfalloff);
+				const vector<deformation::Deformation>& deformations = falloff0 > falloff1 ? datarighthand.deformations : datalefthand.deformations;
+				while (t < maxt)
+				{
+					float dt = deformations[frame].dt;
+					dt = min(maxt - t, dt);
+
+					deformation::Deformation deformation = deformations[frame];
+					deformation.origin = deformation.origin + deformation.linearVelocity*(t - deformation.time);
+
+					mesh.vertices[i] = IntegrateNonElastic_RungeKutta(mesh.vertices[i], t, t + dt, deformation);
+
+					frame++;
+					t += dt;
+				}
+			}
+		}
 
         writeobj("data\\testresult5.obj", mesh);
-        debugprintf("test5 success\n");
+        printf("test5 success\n");
     }
 
     // --------------------
     // This demonstrates deforming with Kelvinlets.
     // It uses a single stream of poses from the right hand in Medium.
     // This deforms with a single Kelvinlet.
+	// This does a single RK4 integration per pair of keyframes.
+	//
     // You probably don't want to do this on the CPU like this. Instead of accumulating
     // keyframe poses and applying them all at once, instead do a single Runge-Kutta
     // integration for that frame. That will be much faster than this-- even cheaper on the GPU
@@ -434,17 +549,22 @@ int main()
 
         for (uint i = 0; i < mesh.vertices.size(); i++)
         {
-            mesh.vertices[i] = deformation::deformKelvinlet(mesh.vertices[i], data.kelvinlets, data.material, stroke.outerRadius, maxerror);
-        }
+			for (int frame = 0; frame < data.kelvinlets.size(); frame++)
+			{
+				mesh.vertices[i] = IntegrateKelvinlets_RungeKutta(mesh.vertices[i], data.kelvinlets[frame].time, data.kelvinlets[frame].time + data.kelvinlets[frame].dt, data.kelvinlets[frame]);
+			}
+		}
 
         writeobj("data\\testresult6.obj", mesh);
-        debugprintf("test6 success\n");
+        printf("test6 success\n");
     }
 
     // --------------------
     // This demonstrates deforming with multiple Kelvinlets.
     // Two streams of poses were recorded in Medium, one for each hand.
     // This deforms with two Kelvinlets.
+	// This does a single RK4 integration per pair of keyframes.
+	//
     // You probably don't want to do this on the CPU like this. Instead of accumulating
     // keyframe poses and applying them all at once, instead do a single Runge-Kutta
     // integration for that frame. That will be much faster than this-- even cheaper on the GPU
@@ -462,14 +582,17 @@ int main()
 
         for (uint i = 0; i < mesh.vertices.size(); i++)
         {
-            mesh.vertices[i] = deformation::deformBlendedKelvinlets(mesh.vertices[i], datarighthand.kelvinlets, datalefthand.kelvinlets, datarighthand.material, strokerighthand.outerRadius, maxerror);
-        }
+			for (int frame = 0; frame < datarighthand.kelvinlets.size(); frame++)
+			{
+				mesh.vertices[i] = IntegrateKelvinletsTwoDeformers_RungeKutta(mesh.vertices[i], datarighthand.kelvinlets[frame].time, datarighthand.kelvinlets[frame].time + datarighthand.kelvinlets[frame].dt, datarighthand.kelvinlets[frame], datalefthand.kelvinlets[frame]);
+			}
+		}
 
         writeobj("data\\testresult7.obj", mesh);
-        debugprintf("test7 success\n");
+        printf("test7 success\n");
     }
 
-    debugprintf("All tests successfully completed\n");
+    printf("All tests successfully completed\n");
 
     return 0;
 }

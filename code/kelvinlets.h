@@ -9,7 +9,7 @@
 #endif
 
 ///////////////////////////////////////////////////////
-// Kelvinlets
+// Regularized Kelvinlets
 ///////////////////////////////////////////////////////
 
 // Set this to 1 to use biscale Kelvinlets (for tighter falloff)
@@ -113,21 +113,6 @@ KPinchCalibrationFactor(float radius, float compressibility)
     return c * singlescale_falloff;
 #endif
 }
-
-// Kelvinlets evaluation
-struct KelvinletParameters
-{
-    Kelvinlet kelvinlet;
-    Material material;
-    float radius;
-};
-
-struct KelvinletTwoDeformerParameters
-{
-    Kelvinlet kelvinlet[2];
-    Material material;
-    float radius;
-};
 
 // Returns a displacement vector for the point R for a single Kelvinlet
 // You probably want to call KTranslation(), which handles either single
@@ -269,64 +254,66 @@ KPinch(vec3 R, mat3x3 loadForceMatrix, float radius, float stiffness, float comp
 }
 
 // Returns the displacement vector for translation/rotation/scale of the position x at time t
-// This advects the load origin so that a particle that starts at 
-// loadOrigin is moved to loadEnd
+// This advects the origin so that a particle that starts at origin is moved to origin+linearVelocity*dt
 INLINE vec3
-KEvaluate(float t, vec3 x, KelvinletParameters p)
+KEvaluate(float t, vec3 x, Kelvinlet kelvinlet)
 {
-    // advect the center of the Kelvinlet from the start position to end position
-    float originLerp = t - p.kelvinlet.time;
-    vec3 loadOriginAdvected = p.kelvinlet.origin + p.kelvinlet.linearVelocity * originLerp;
-    vec3 R = x - loadOriginAdvected;
-    vec3 Kt = KTranslation(R, p.kelvinlet.forceVector, p.radius, p.material.stiffness, p.material.compressibility);
-    vec3 Kr = KTwist(R, p.kelvinlet.twistForceMatrix, p.radius, p.material.stiffness, p.material.compressibility);
-    vec3 Ks = KScale(R, p.kelvinlet.scaleForceMatrix, p.radius, p.material.stiffness, 0.0f);    // compressibility of 0.5 causes divide by 0 in Kelvinlets math, so for scale, we just set compressibility to 0.0f
+    // advect the center of the Kelvinlet
+    float originLerp = t - kelvinlet.time;
+    vec3 loadOriginAdvected = kelvinlet.origin + kelvinlet.linearVelocity * originLerp;
+
+	vec3 R = x - loadOriginAdvected;
+    vec3 Kt = KTranslation(R, kelvinlet.forceVector, kelvinlet.radius, kelvinlet.stiffness, kelvinlet.compressibility);
+    vec3 Kr = KTwist(R, kelvinlet.twistForceMatrix, kelvinlet.radius, kelvinlet.stiffness, kelvinlet.compressibility);
+    vec3 Ks = KScale(R, kelvinlet.scaleForceMatrix, kelvinlet.radius, kelvinlet.stiffness, 0.0f);    // compressibility of 0.5 causes divide by 0 in Kelvinlets math, so for scale, we just set compressibility to 0.0f
     return Kt + Kr + Ks;
 }
 
 // Same as above, but with two deformers
 INLINE vec3
-KEvaluateTwoDeformers(float t, vec3 x, KelvinletTwoDeformerParameters p)
+KEvaluateTwoDeformers(float t, vec3 x, Kelvinlet kelvinlet0, Kelvinlet kelvinlet1)
 {
     // pose 0
-    // advect the center of the Kelvinlet from the start position to end position
-    float originLerp = t - p.kelvinlet[0].time;
-    vec3 loadOriginAdvected0 = p.kelvinlet[0].origin + p.kelvinlet[0].linearVelocity * originLerp;
-    vec3 R0 = x - loadOriginAdvected0;
-    vec3 Kt0 = KTranslation(R0, p.kelvinlet[0].forceVector, p.radius, p.material.stiffness, p.material.compressibility);
-    vec3 Kr0 = KTwist(R0, p.kelvinlet[0].twistForceMatrix, p.radius, p.material.stiffness, p.material.compressibility);
-    vec3 Ks0 = KScale(R0, p.kelvinlet[0].scaleForceMatrix, p.radius, p.material.stiffness, 0.0f);    // compressibility of 0.5 causes divide by 0 in Kelvinlets math, so for scale, we just set compressibility to 0.0f
+    // advect the center of the Kelvinlet 
+    float originLerp = t - kelvinlet0.time;
+    vec3 loadOriginAdvected0 = kelvinlet0.origin + kelvinlet0.linearVelocity * originLerp;
+
+	vec3 R0 = x - loadOriginAdvected0;
+    vec3 Kt0 = KTranslation(R0, kelvinlet0.forceVector, kelvinlet0.radius, kelvinlet0.stiffness, kelvinlet0.compressibility);
+    vec3 Kr0 = KTwist(R0, kelvinlet0.twistForceMatrix, kelvinlet0.radius, kelvinlet0.stiffness, kelvinlet0.compressibility);
+    vec3 Ks0 = KScale(R0, kelvinlet0.scaleForceMatrix, kelvinlet0.radius, kelvinlet0.stiffness, 0.0f);    // compressibility of 0.5 causes divide by 0 in Kelvinlets math, so for scale, we just set compressibility to 0.0f
 
     // pose 1
-    // advect the center of the Kelvinlet from the start position to end position
-    vec3 loadOriginAdvected1 = p.kelvinlet[1].origin + p.kelvinlet[1].linearVelocity * originLerp;
-    vec3 R1 = x - loadOriginAdvected1;
-    vec3 Kt1 = KTranslation(R1, p.kelvinlet[1].forceVector, p.radius, p.material.stiffness, p.material.compressibility);
-    vec3 Kr1 = KTwist(R1, p.kelvinlet[1].twistForceMatrix, p.radius, p.material.stiffness, p.material.compressibility);
-    vec3 Ks1 = KScale(R1, p.kelvinlet[1].scaleForceMatrix, p.radius, p.material.stiffness, 0.0f);
+    // advect the center of the Kelvinlet 
+    vec3 loadOriginAdvected1 = kelvinlet1.origin + kelvinlet1.linearVelocity * originLerp;
+    
+	vec3 R1 = x - loadOriginAdvected1;
+    vec3 Kt1 = KTranslation(R1, kelvinlet1.forceVector, kelvinlet1.radius, kelvinlet1.stiffness, kelvinlet1.compressibility);
+    vec3 Kr1 = KTwist(R1, kelvinlet1.twistForceMatrix, kelvinlet1.radius, kelvinlet1.stiffness, kelvinlet1.compressibility);
+    vec3 Ks1 = KScale(R1, kelvinlet1.scaleForceMatrix, kelvinlet1.radius, kelvinlet1.stiffness, 0.0f);
 
     return Kt0 + Kr0 + Ks0 + Kt1 + Kr1 + Ks1;
 }
 
 // Returns the displacement vactor for pinch of x
 INLINE vec3
-KEvaluatePinch(float t, vec3 x, KelvinletParameters p)
+KEvaluatePinch(float t, vec3 x, Kelvinlet kelvinlet)
 {
-    vec3 R = x - p.kelvinlet.origin;
-    vec3 Kp = KPinch(R, p.kelvinlet.scaleForceMatrix, p.radius, p.material.stiffness, p.material.compressibility);
+    vec3 R = x - kelvinlet.origin;
+    vec3 Kp = KPinch(R, kelvinlet.scaleForceMatrix, kelvinlet.radius, kelvinlet.stiffness, kelvinlet.compressibility);
     return Kp;
 }
 
 INLINE vec3
-KEvaluatePinchTwoDeformers(float t, vec3 x, KelvinletTwoDeformerParameters p)
+KEvaluatePinchTwoDeformers(float t, vec3 x, Kelvinlet kelvinlet0, Kelvinlet kelvinlet1)
 {
     // pose 0
-    vec3 R0 = x - p.kelvinlet[0].origin;
-    vec3 Kp0 = KPinch(R0, p.kelvinlet[0].scaleForceMatrix, p.radius, p.material.stiffness, p.material.compressibility);
+    vec3 R0 = x - kelvinlet0.origin;
+    vec3 Kp0 = KPinch(R0, kelvinlet0.scaleForceMatrix, kelvinlet0.radius, kelvinlet0.stiffness, kelvinlet0.compressibility);
 
     // pose 1
-    vec3 R1 = x - p.kelvinlet[1].origin;
-    vec3 Kp1 = KPinch(R1, p.kelvinlet[1].scaleForceMatrix, p.radius, p.material.stiffness, p.material.compressibility);
+    vec3 R1 = x - kelvinlet1.origin;
+    vec3 Kp1 = KPinch(R1, kelvinlet1.scaleForceMatrix, kelvinlet1.radius, kelvinlet1.stiffness, kelvinlet1.compressibility);
 
     return Kp0 + Kp1;
 }
@@ -338,18 +325,22 @@ KEvaluatePinchTwoDeformers(float t, vec3 x, KelvinletTwoDeformerParameters p)
 // to parameterize the solver with different evaluation functions.
 ///////////////////////////////////////////////////////
 
-#define SCOPE(suffix) Kelvinlets##suffix
-#define evaluate KEvaluate
-#define Parameters KelvinletParameters
+#define SCOPE(suffix) IntegrateKelvinlets##suffix
+#define EVALUATE KEvaluate
+#define PARAMETERLIST Kelvinlet kelvinlet
+#define PARAMETERS kelvinlet
 #include "ODESolvers.h"
-#undef Parameters
-#undef evaluate
+#undef PARAMETERS
+#undef PARAMETERLIST
+#undef EVALUATE
 #undef SCOPE
 
-#define SCOPE(suffix) KelvinletsTwoDeformers##suffix
-#define evaluate KEvaluateTwoDeformers
-#define Parameters KelvinletTwoDeformerParameters
+#define SCOPE(suffix) IntegrateKelvinletsTwoDeformers##suffix
+#define EVALUATE KEvaluateTwoDeformers
+#define PARAMETERLIST Kelvinlet kelvinlet0, Kelvinlet kelvinlet1
+#define PARAMETERS kelvinlet0, kelvinlet1
 #include "ODESolvers.h"
-#undef Parameters
-#undef evaluate
+#undef PARAMETERS
+#undef PARAMETERLIST
+#undef EVALUATE
 #undef SCOPE

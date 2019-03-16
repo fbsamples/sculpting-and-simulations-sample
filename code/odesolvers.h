@@ -7,18 +7,23 @@
 // This file contains a collection of ODE solvers
 // compatible with C++ and GLSL code. Because this
 // code is used by GLSL, we can't use a lot of nice
-// things in C, like namespaces or classes. We work
-// around that with metaprogramming using the
+// things in C, like namespaces, classes, or virtual functions.
+// We work around that by generating C style functions using the
 // C preprocessor.
 //
-// To use this code, you must specify the macro SCOPE,
-// the macro EVALUATE, and the macro PARAMETERS.
+// To use this code, you must specify these macros, and
+// then #include this file:
+// SCOPE,
+// EVALUATE, 
+// PARAMETERLIST,
+// PARAMETERS
 //
 // For example:
 //
 //  #define SCOPE(suffix) Kelvinlets##suffix
 //  #define EVALUATE(...) KEvaluate(__VA_ARGS__)
-//  #define PARAMETERS KelvinletParameterss
+//  #define PARAMETERLIST KelvinletParameters klvn, State state
+//  #define PARAMETERS klvn, state
 //  #include "ODESolver.h"
 //
 // The SCOPE macro must create a unique
@@ -27,11 +32,17 @@
 //
 // The EVALUATE macro must be a function that
 // returns a derivative. It has a declaration of:
-// vec3 evaluator(float t, vec3 x, Parameters p)
+// vec3 evaluator(float t, vec3 x, PARAMETERLIST)
 //
-// The PARAMETERS macro is the name of a struct that is 
-// passed to the evaluate function. The ODE solver
-// does not care about these parameters, but the user
+// The PARAMETERLIST macro is the list of parameters
+// used by the EVALUATE function, used in a function
+// declaration.
+//
+// The PARAMETERS macro is the list of parameters
+// used by the EVALUATE function, used to invoke the
+// function.
+//
+// The ODE solver about the PARAMETERS, but the user
 // needs a way to pass data to the evaluator function.
 // For example, if your is f(x) = sin(x) + c + d^x, 
 // then c and d would be parameters.
@@ -66,13 +77,13 @@
 ///////////////////////////////////////////////////////
 
 INLINE vec3 
-SCOPE(euler)(float t, float dt, vec3 x, Parameters p)
+SCOPE(euler)(float t, float dt, vec3 x, PARAMETERLIST)
 {
-    return x + dt*evaluate(t, x, p);
+    return x + dt*EVALUATE(t, x, PARAMETERS);
 }
 
 INLINE vec3
-SCOPE(rungekutta)(float t, float dt, vec3 x, Parameters p)
+SCOPE(rungekutta)(float t, float dt, vec3 x, PARAMETERLIST)
 {
     float a1 = 0;
     float a2 = 1 / 2.0f;
@@ -91,10 +102,10 @@ SCOPE(rungekutta)(float t, float dt, vec3 x, Parameters p)
     float c3 = 1 / 3.0f;
     float c4 = 1 / 6.0f;
 
-    vec3 k1 = dt*evaluate(t + dt*a1, x, p);
-    vec3 k2 = dt*evaluate(t + dt*a2, x + k1*b21, p);
-    vec3 k3 = dt*evaluate(t + dt*a3, x + k1*b31 + k2*b32, p);
-    vec3 k4 = dt*evaluate(t + dt*a4, x + k1*b41 + k2*b42 + k3*b43, p);
+    vec3 k1 = dt*EVALUATE(t + dt*a1, x, PARAMETERS);
+    vec3 k2 = dt*EVALUATE(t + dt*a2, x + k1*b21, PARAMETERS);
+    vec3 k3 = dt*EVALUATE(t + dt*a3, x + k1*b31 + k2*b32, PARAMETERS);
+    vec3 k4 = dt*EVALUATE(t + dt*a4, x + k1*b41 + k2*b42 + k3*b43, PARAMETERS);
 
     return x + k1*c1 + k2*c2 + k3*c3 + k4*c4;
 }
@@ -110,7 +121,7 @@ struct SCOPE(RK45Result )
     vec3 fifthorder;
 };
 INLINE SCOPE(RK45Result)
-SCOPE(rungekuttafehlberg)(float t, float dt, vec3 x, Parameters p)
+SCOPE(rungekuttafehlberg)(float t, float dt, vec3 x, PARAMETERLIST)
 {
     // https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta%E2%80%93Fehlberg_method
     float a1 = 0;
@@ -150,12 +161,12 @@ SCOPE(rungekuttafehlberg)(float t, float dt, vec3 x, Parameters p)
     float d5 = -1 / 5.0f;
     float d6 = 0;
 
-    vec3 k1 = dt*evaluate(t + dt*a1, x, p);
-    vec3 k2 = dt*evaluate(t + dt*a2, x + k1*b21, p);
-    vec3 k3 = dt*evaluate(t + dt*a3, x + k1*b31 + k2*b32, p);
-    vec3 k4 = dt*evaluate(t + dt*a4, x + k1*b41 + k2*b42 + k3*b43, p);
-    vec3 k5 = dt*evaluate(t + dt*a5, x + k1*b51 + k2*b52 + k3*b53 + k4*b54, p);
-    vec3 k6 = dt*evaluate(t + dt*a6, x + k1*b61 + k2*b62 + k3*b63 + k4*b64 + k5*b65, p);
+    vec3 k1 = dt*EVALUATE(t + dt*a1, x, PARAMETERS);
+    vec3 k2 = dt*EVALUATE(t + dt*a2, x + k1*b21, PARAMETERS);
+    vec3 k3 = dt*EVALUATE(t + dt*a3, x + k1*b31 + k2*b32, PARAMETERS);
+    vec3 k4 = dt*EVALUATE(t + dt*a4, x + k1*b41 + k2*b42 + k3*b43, PARAMETERS);
+    vec3 k5 = dt*EVALUATE(t + dt*a5, x + k1*b51 + k2*b52 + k3*b53 + k4*b54, PARAMETERS);
+    vec3 k6 = dt*EVALUATE(t + dt*a6, x + k1*b61 + k2*b62 + k3*b63 + k4*b64 + k5*b65, PARAMETERS);
 
     SCOPE(RK45Result) result;
     result.fourthorder = x + k1*d1 + k2*d2 + k3*d3 + k4*d4 + k5*d5 + k6*d6;
@@ -168,16 +179,15 @@ SCOPE(rungekuttafehlberg)(float t, float dt, vec3 x, Parameters p)
 // Dormand and Prince wrote this to produce a fifth order answer with less error than RK45.
 // It is a FSAL method (First Same As Last) so that you can rearrange this code to use 6 evaluations
 // per step instead of 7 (although we don't take advantage of that yet).
-// In general, this takes fewer steps than RK45.
 struct SCOPE(DormandPrinceRungeKuttaResult)
 {
     vec3 fourthorder;
     vec3 fifthorder;
 };
 INLINE SCOPE(DormandPrinceRungeKuttaResult)
-SCOPE(dormandprincerungekutta)(float t, float dt, vec3 x, Parameters p)
+SCOPE(dormandprincerungekutta)(float t, float dt, vec3 x, PARAMETERLIST)
 {
-    // http://depa.fquim.unam.mx/amyd/archivero/DormandPrince_19856.pdf
+    // https://en.wikipedia.org/wiki/Dormand%E2%80%93Prince_method
     float a1 = 0;
     float a2 = 1 / 5.0f;
     float a3 = 3 / 10.0f;
@@ -223,33 +233,31 @@ SCOPE(dormandprincerungekutta)(float t, float dt, vec3 x, Parameters p)
     float d6 = 187 / 2100.0f;
     float d7 = 1 / 40.0f;
 
-    vec3 k1 = dt*evaluate(t + dt*a1, x, p);
-    vec3 k2 = dt*evaluate(t + dt*a2, x + k1*b21, p);
-    vec3 k3 = dt*evaluate(t + dt*a3, x + k1*b31 + k2*b32, p);
-    vec3 k4 = dt*evaluate(t + dt*a4, x + k1*b41 + k2*b42 + k3*b43, p);
-    vec3 k5 = dt*evaluate(t + dt*a5, x + k1*b51 + k2*b52 + k3*b53 + k4*b54, p);
-    vec3 k6 = dt*evaluate(t + dt*a6, x + k1*b61 + k2*b62 + k3*b63 + k4*b64 + k5*b65, p);
-    vec3 k7 = dt*evaluate(t + dt*a7, x + k1*b71 + k2*b72 + k3*b73 + k4*b74 + k5*b75 + k5*b76, p);
+    vec3 k1 = dt*EVALUATE(t + dt*a1, x, PARAMETERS);
+    vec3 k2 = dt*EVALUATE(t + dt*a2, x + k1*b21, PARAMETERS);
+    vec3 k3 = dt*EVALUATE(t + dt*a3, x + k1*b31 + k2*b32, PARAMETERS);
+    vec3 k4 = dt*EVALUATE(t + dt*a4, x + k1*b41 + k2*b42 + k3*b43, PARAMETERS);
+    vec3 k5 = dt*EVALUATE(t + dt*a5, x + k1*b51 + k2*b52 + k3*b53 + k4*b54, PARAMETERS);
+    vec3 k6 = dt*EVALUATE(t + dt*a6, x + k1*b61 + k2*b62 + k3*b63 + k4*b64 + k5*b65, PARAMETERS);
+    vec3 k7 = dt*EVALUATE(t + dt*a7, x + k1*b71 + k2*b72 + k3*b73 + k4*b74 + k5*b75 + k5*b76, PARAMETERS);
 
     SCOPE(DormandPrinceRungeKuttaResult) result;
-    result.fourthorder = x + k1*c1 + k2*c2 + k3*c3 + k4*c4 + k5*c5 + k6*c6;
-    result.fifthorder = x + k1*d1 + k2*d2 + k3*d3 + k4*d4 + k5*d5 + k6*d6 + k7*d7;
+	result.fourthorder = x + k1*d1 + k2*d2 + k3*d3 + k4*d4 + k5*d5 + k6*d6 + k7*d7;
+	result.fifthorder = x + k1*c1 + k2*c2 + k3*c3 + k4*c4 + k5*c5 + k6*c6;
     return result;
 }
 
 // Bogacki-Shampine 3(2) method
 // This is an embedded method that computes a second and third order answer
-// Given the same error tolerance, BS32 takes more steps than RK45 or DP54, but it is cheaper
-// to compute for each step since it takes fewer evaluations.
-// In testing with elastic move tool data, this method came out slightly faster than either RK45 or DP54
-// (when measuring the number of calls to the evaluate function).
+// Given the same error tolerance, BS32 takes more steps than RKF45 or DP54, 
+// but it is often cheaper to compute for each step since it takes fewer evaluations.
 struct SCOPE(BogackiShampineRungeKuttaResult)
 {
     vec3 secondorder;
     vec3 thirdorder;
 };
 INLINE SCOPE(BogackiShampineRungeKuttaResult)
-SCOPE(bogackishampinerungekutta)(float t, float dt, vec3 x, Parameters p)
+SCOPE(bogackishampinerungekutta)(float t, float dt, vec3 x, PARAMETERLIST)
 {
     // https://en.wikipedia.org/wiki/Bogacki%E2%80%93Shampine_method
     float a1 = 0;
@@ -264,19 +272,19 @@ SCOPE(bogackishampinerungekutta)(float t, float dt, vec3 x, Parameters p)
     float b42 = 1 / 3.0f;
     float b43 = 4 / 9.0f;
 
-    float c1 = 2 / 9.0f;
+    float c1 = 2 / 9.0f;    // third order answer
     float c2 = 1 / 3.0f;
     float c3 = 4 / 9.0f;
 
-    float d1 = 7 / 24.0f;
+    float d1 = 7 / 24.0f;    // second order answer
     float d2 = 1 / 4.0f;
     float d3 = 1 / 3.0f;
     float d4 = 1 / 8.0f;
 
-    vec3 k1 = dt*evaluate(t + dt*a1, x, p);
-    vec3 k2 = dt*evaluate(t + dt*a2, x + k1*b21, p);
-    vec3 k3 = dt*evaluate(t + dt*a3, x + k1*b31 + k2*b32, p);
-    vec3 k4 = dt*evaluate(t + dt*a4, x + k1*b41 + k2*b42 + k3*b43, p);
+    vec3 k1 = dt*EVALUATE(t + dt*a1, x, PARAMETERS);
+    vec3 k2 = dt*EVALUATE(t + dt*a2, x + k1*b21, PARAMETERS);
+    vec3 k3 = dt*EVALUATE(t + dt*a3, x + k1*b31 + k2*b32, PARAMETERS);
+    vec3 k4 = dt*EVALUATE(t + dt*a4, x + k1*b41 + k2*b42 + k3*b43, PARAMETERS);
 
     SCOPE(BogackiShampineRungeKuttaResult) result;
     result.secondorder = x + k1*d1 + k2*d2 + k3*d3 + k4*d4;
@@ -289,13 +297,13 @@ SCOPE(bogackishampinerungekutta)(float t, float dt, vec3 x, Parameters p)
 ///////////////////////////////////////////////////////
 
 // This takes 100 Euler steps. Included as a simple example.
-INLINE vec3 SCOPE(_FixedEuler)(vec3 pos, float tstart, float tend, Parameters p)
+INLINE vec3 SCOPE(_FixedEuler)(vec3 pos, float tstart, float tend, PARAMETERLIST)
 {
     float t = tstart;
     float dt = (tend - tstart) * 0.01f;
     while (t < tend)
     {
-        pos = SCOPE(euler)(t, dt, pos, p);
+        pos = SCOPE(euler)(t, dt, pos, PARAMETERS);
         t += dt;
     }
 
@@ -303,13 +311,13 @@ INLINE vec3 SCOPE(_FixedEuler)(vec3 pos, float tstart, float tend, Parameters p)
 }
 
 // This takes ten RK4 steps. Included as a simple example.
-INLINE vec3 SCOPE(_FixedRungeKutta)(vec3 pos, float tstart, float tend, Parameters p)
+INLINE vec3 SCOPE(_FixedRungeKutta)(vec3 pos, float tstart, float tend, PARAMETERLIST)
 {
     float t = tstart;
     float dt = (tend - tstart) * 0.1f;
     while (t < tend)
     {
-        pos = SCOPE(rungekutta)(t, dt, pos, p);
+        pos = SCOPE(rungekutta)(t, dt, pos, PARAMETERS);
         t += dt;
     }
 
@@ -317,20 +325,19 @@ INLINE vec3 SCOPE(_FixedRungeKutta)(vec3 pos, float tstart, float tend, Paramete
 }
 
 // This takes a single RK4 step.
-INLINE vec3 SCOPE(_RungeKutta)(vec3 pos, float tstart, float tend, Parameters p)
+INLINE vec3 SCOPE(_RungeKutta)(vec3 pos, float tstart, float tend, PARAMETERLIST)
 {
     float t = tstart;
     float dt = (tend - tstart);
 
-    pos = SCOPE(rungekutta)(t, dt, pos, p);
+    pos = SCOPE(rungekutta)(t, dt, pos, PARAMETERS);
 
     return pos;
 }
 
-INLINE vec3 SCOPE(_StepDoubling)(vec3 pos, float tstart, float tend, Parameters p, float maxerror)
+INLINE vec3 SCOPE(_StepDoubling)(vec3 pos, float tstart, float tend, float maxerror, PARAMETERLIST)
 {
     // Runge Kutta, adaptive by taking a step and then two half-steps
-    // http://farside.ph.utexas.edu/teaching/329/lectures/node39.html
 
     float t = tstart;
     float dt = (tend - tstart) * ADAPTIVE_INTEGRATOR_INITIAL_DT;
@@ -338,9 +345,9 @@ INLINE vec3 SCOPE(_StepDoubling)(vec3 pos, float tstart, float tend, Parameters 
     {
         dt = min(dt, tend - t);
 
-        vec3 fullstep = SCOPE(rungekutta)(t, dt, pos, p);
-        vec3 halfstep = SCOPE(rungekutta)(t, dt / 2.0f, pos, p);
-        vec3 twohalfsteps = SCOPE(rungekutta)(t + dt / 2.0f, dt / 2.0f, halfstep, p);
+        vec3 fullstep = SCOPE(rungekutta)(t, dt, pos, PARAMETERS);
+        vec3 halfstep = SCOPE(rungekutta)(t, dt / 2.0f, pos, PARAMETERS);
+        vec3 twohalfsteps = SCOPE(rungekutta)(t + dt / 2.0f, dt / 2.0f, halfstep, PARAMETERS);
 
         // step doubling uses the formula (fullstep - twohalfsteps)/15
         // which is more accurate than the embedded methods, which use (fifthorderanswer - fourthorderanswer) as error
@@ -368,7 +375,7 @@ INLINE vec3 SCOPE(_StepDoubling)(vec3 pos, float tstart, float tend, Parameters 
     return pos;
 }
 
-INLINE vec3 SCOPE(_AdaptiveRKF45)(vec3 pos, float tstart, float tend, Parameters p, float maxerror)
+INLINE vec3 SCOPE(_AdaptiveRKF45)(vec3 pos, float tstart, float tend, float maxerror, PARAMETERLIST)
 {
     float t = tstart;
     float dt = (tend - tstart) * ADAPTIVE_INTEGRATOR_INITIAL_DT;
@@ -376,7 +383,7 @@ INLINE vec3 SCOPE(_AdaptiveRKF45)(vec3 pos, float tstart, float tend, Parameters
     {
         dt = min(dt, tend - t);
 
-        SCOPE(RK45Result) rk45 = SCOPE(rungekuttafehlberg)(t, dt, pos, p);
+        SCOPE(RK45Result) rk45 = SCOPE(rungekuttafehlberg)(t, dt, pos, PARAMETERS);
 
         float error = length(rk45.fifthorder - rk45.fourthorder) / dt;
 
@@ -402,7 +409,7 @@ INLINE vec3 SCOPE(_AdaptiveRKF45)(vec3 pos, float tstart, float tend, Parameters
     return pos;
 }
 
-INLINE vec3 SCOPE(_AdaptiveDP54)(vec3 pos, float tstart, float tend, Parameters p, float maxerror)
+INLINE vec3 SCOPE(_AdaptiveDP54)(vec3 pos, float tstart, float tend, float maxerror, PARAMETERLIST)
 {
     float t = tstart;
     float dt = (tend - tstart) * ADAPTIVE_INTEGRATOR_INITIAL_DT;
@@ -410,7 +417,7 @@ INLINE vec3 SCOPE(_AdaptiveDP54)(vec3 pos, float tstart, float tend, Parameters 
     {
         dt = min(dt, tend - t);
 
-        SCOPE(DormandPrinceRungeKuttaResult) dprk = SCOPE(dormandprincerungekutta)(t, dt, pos, p);
+        SCOPE(DormandPrinceRungeKuttaResult) dprk = SCOPE(dormandprincerungekutta)(t, dt, pos, PARAMETERS);
 
         float error = length(dprk.fifthorder - dprk.fourthorder) / dt;
 
@@ -435,7 +442,7 @@ INLINE vec3 SCOPE(_AdaptiveDP54)(vec3 pos, float tstart, float tend, Parameters 
     return pos;
 }
 
-INLINE vec3 SCOPE(_AdaptiveBS32)(vec3 pos, float tstart, float tend, Parameters p, float maxerror)
+INLINE vec3 SCOPE(_AdaptiveBS32)(vec3 pos, float tstart, float tend, float maxerror, PARAMETERLIST)
 {
     float t = tstart;
     float dt = (tend - tstart) * ADAPTIVE_INTEGRATOR_INITIAL_DT;
@@ -443,7 +450,7 @@ INLINE vec3 SCOPE(_AdaptiveBS32)(vec3 pos, float tstart, float tend, Parameters 
     {
         dt = min(dt, tend - t);
 
-        SCOPE(BogackiShampineRungeKuttaResult) bsrk = SCOPE(bogackishampinerungekutta)(t, dt, pos, p);
+        SCOPE(BogackiShampineRungeKuttaResult) bsrk = SCOPE(bogackishampinerungekutta)(t, dt, pos, PARAMETERS);
 
         float error = length(bsrk.thirdorder - bsrk.secondorder) / dt;
 

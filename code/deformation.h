@@ -6,8 +6,13 @@
 
 #ifdef __cplusplus
 #define INLINE inline
+INLINE float min(float a, float b) { return a < b ? a : b; };
+INLINE float max(float a, float b) { return a > b ? a : b; };
+INLINE int min(int a, int b) { return a < b ? a : b; };
+INLINE int max(int a, int b) { return a > b ? a : b; };
 #pragma once
 #else
+// otherwise this assumes GLSL, which defines min()/max()
 #define INLINE
 #endif
 
@@ -40,12 +45,6 @@ struct Deformation
     float  dt;
 };
 
-struct Material
-{
-    float stiffness;
-    float compressibility;
-};
-
 struct Kelvinlet
 {
     vec3   origin;
@@ -55,6 +54,9 @@ struct Kelvinlet
     mat3x3 scaleForceMatrix;
     float  time;
     float  dt;
+	float  radius;
+	float  stiffness;
+	float  compressibility;
 };
 
 #include "kelvinlets.h"
@@ -68,7 +70,7 @@ INLINE Motion buildMotion(Pose start, Pose end);
 
 INLINE Deformation buildDeformation(Motion motion);
 
-INLINE Kelvinlet buildKelvinlet(Deformation deformation, Material material, float radius);
+INLINE Kelvinlet buildKelvinlet(Deformation deformation, float stiffness, float compressibilty, float radius);
 
 INLINE mat3x3 skewSymmetric(vec3 a)
 {
@@ -139,7 +141,7 @@ INLINE Deformation buildDeformation(Motion motion)
     return deformation;
 }
 
-INLINE Kelvinlet buildKelvinlet(Deformation deformation, Material material, float radius)
+INLINE Kelvinlet buildKelvinlet(Deformation deformation, float stiffness, float compressibility, float radius)
 {
     Kelvinlet kelvinlet;
 
@@ -149,15 +151,16 @@ INLINE Kelvinlet buildKelvinlet(Deformation deformation, Material material, floa
 
     kelvinlet.origin = deformation.origin;
     kelvinlet.linearVelocity = deformation.linearVelocity;
-    kelvinlet.forceVector = deformation.linearVelocity * KTranslationCalibrationFactor(radius, material.compressibility);
-    kelvinlet.twistForceMatrix = deformation.rotationTensor * KTwistCalibrationFactor(radius, material.compressibility);
+    kelvinlet.forceVector = deformation.linearVelocity * KTranslationCalibrationFactor(radius, compressibility);
+    kelvinlet.twistForceMatrix = deformation.rotationTensor * KTwistCalibrationFactor(radius, compressibility);
     kelvinlet.scaleForceMatrix = deformation.strainTensor * KScaleCalibrationFactor(radius, scaleCompressibility);
     kelvinlet.time = deformation.time;
     kelvinlet.dt = deformation.dt;
+	kelvinlet.radius = radius;
+	kelvinlet.stiffness = stiffness;
+	kelvinlet.compressibility = compressibility;
     
     return kelvinlet;
 }
-
-#include "Deformers.h"
 
 #endif

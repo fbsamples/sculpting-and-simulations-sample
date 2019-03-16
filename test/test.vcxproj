@@ -20,7 +20,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\code\deformation.h" />
-    <ClInclude Include="..\code\deformers.h" />
     <ClInclude Include="..\code\kelvinlets.h" />
     <ClInclude Include="..\code\nonelastic.h" />
     <ClInclude Include="..\code\odesolvers.h" />

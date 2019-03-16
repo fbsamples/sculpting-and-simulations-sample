@@ -7,10 +7,8 @@
 struct vec3
 {
     vec3() {};
-    vec3(float a)
-        : x(a), y(a), z(a) {};
-    vec3(float a, float b, float c)
-        : x(a), y(b), z(c) {};
+    vec3(float a) : x(a), y(a), z(a) {};
+    vec3(float a, float b, float c) : x(a), y(b), z(c) {};
 
     float x, y, z;
 };
@@ -93,8 +91,7 @@ struct quat
 {
     quat() {};
 
-    quat(float a, float b, float c, float d)
-        : r(a), i(b), j(c), k(d) {};
+    quat(float a, float b, float c, float d) : r(a), i(b), j(c), k(d) {};
 
     float r, i, j, k;
 
@@ -176,8 +173,7 @@ struct mat3x3
     mat3x3() {};
 
     // from column vectors
-    mat3x3(vec3 vx, vec3 vy, vec3 vz)
-        : cx(vx), cy(vy), cz(vz) {};
+    mat3x3(vec3 vx, vec3 vy, vec3 vz) : cx(vx), cy(vy), cz(vz) {};
 
     vec3 cx, cy, cz;
 };
@@ -200,15 +196,4 @@ mat3x3 operator+(mat3x3 a, mat3x3 b)
 vec3 operator*(mat3x3 a, vec3 b)
 {
     return b.x * a.cx + b.y * a.cy + b.z * a.cz;
-}
-
-void debugprintf(const char* str, ...)
-{
-    va_list args;
-    va_start(args, str);
-    static char buffer[4096];
-    vsprintf_s(buffer, 4096, str, args);
-    OutputDebugStringA(buffer);
-    printf("%s", buffer);
-    va_end(args);
 }

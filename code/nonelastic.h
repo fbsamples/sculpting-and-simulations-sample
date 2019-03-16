@@ -10,42 +10,40 @@
 
 ///////////////////////////////////////////////////////
 // NonElastic (non-elastic) deformation
-// The following code doesn't use Kelvinlets
+// The following code is an affine transform (consisting
+// of translation, rotation, and uniform scale) in
+// differential equation form
 ///////////////////////////////////////////////////////
 
-struct NonElasticTwoDeformerParameters
-{
-    Deformation deformation[2];
-};
-
 INLINE vec3
-NonElasticEvaluateODE(float t, vec3 x, Deformation d)
+NonElasticEvaluateODE(float t, vec3 x, Deformation deformer)
 {
-    // advect the center of the move from the start position to end position
-    float originLerp = t - d.time;
-    vec3 originAdvected = d.origin + d.linearVelocity*originLerp;
+    // advect the center of the move
+    float originLerp = t - deformer.time;
+    vec3 originAdvected = deformer.origin + deformer.linearVelocity*originLerp;
 
     vec3 R = x - originAdvected;
-    vec3 trans = d.linearVelocity;
-    vec3 disp = d.displacementGradientTensor * R;
+    vec3 trans = deformer.linearVelocity;
+    vec3 disp = deformer.displacementGradientTensor * R;
     return trans + disp;
 }
 
 INLINE vec3
-NonElasticEvaluateODE_TwoDeformers(float t, vec3 x, NonElasticTwoDeformerParameters p)
+NonElasticEvaluateODE_TwoDeformers(float t, vec3 x, Deformation deformer0, Deformation deformer1)
 {
-    // advect the center of the move from the start position to end position
-    float originLerp = t - p.deformation[0].time;
-    vec3 originAdvected0 = p.deformation[0].origin + p.deformation[0].linearVelocity*originLerp;
-    vec3 R0 = x - originAdvected0;
-    vec3 trans0 = p.deformation[0].linearVelocity;
-    vec3 disp0 = p.deformation[0].displacementGradientTensor * R0;
+    // advect the center of the move
+    float originLerp = t - deformer0.time;
+    vec3 originAdvected0 = deformer0.origin + deformer0.linearVelocity*originLerp;
+
+	vec3 R0 = x - originAdvected0;
+    vec3 trans0 = deformer0.linearVelocity;
+    vec3 disp0 = deformer0.displacementGradientTensor * R0;
     vec3 u0 = trans0 + disp0;
 
-    vec3 originAdvected1 = p.deformation[1].origin + p.deformation[1].linearVelocity*originLerp;
+    vec3 originAdvected1 = deformer1.origin + deformer1.linearVelocity*originLerp;
     vec3 R1 = x - originAdvected1;
-    vec3 trans1 = p.deformation[1].linearVelocity;
-    vec3 disp1 = p.deformation[1].displacementGradientTensor * R1;
+    vec3 trans1 = deformer1.linearVelocity;
+    vec3 disp1 = deformer1.displacementGradientTensor * R1;
     vec3 u1 = trans1 + disp1;
 
     return u0 + u1;
@@ -58,18 +56,22 @@ NonElasticEvaluateODE_TwoDeformers(float t, vec3 x, NonElasticTwoDeformerParamet
 // to parameterize the solver with different evaluation functions.
 ///////////////////////////////////////////////////////
 
-#define SCOPE(suffix) NonElastic##suffix
-#define evaluate NonElasticEvaluateODE
-#define Parameters Deformation
+#define SCOPE(suffix) IntegrateNonElastic##suffix
+#define EVALUATE NonElasticEvaluateODE
+#define PARAMETERLIST Deformation deformer
+#define PARAMETERS deformer
 #include "ODESolvers.h"
-#undef Parameters
-#undef evaluate
+#undef PARAMETERS
+#undef PARAMETERLIST
+#undef EVALUATE
 #undef SCOPE
 
-#define SCOPE(suffix) NonElasticTwoDeformerParameters##suffix
-#define evaluate NonElasticEvaluateODE_TwoDeformers
-#define Parameters NonElasticTwoDeformerParameters
+#define SCOPE(suffix) IntegrateNonElasticTwoDeformers##suffix
+#define EVALUATE NonElasticEvaluateODE_TwoDeformers
+#define PARAMETERLIST Deformation deformer0, Deformation deformer1
+#define PARAMETERS deformer0, deformer1
 #include "ODESolvers.h"
-#undef Parameters
-#undef evaluate
+#undef PARAMETERS
+#undef PARAMETERLIST
+#undef EVALUATE
 #undef SCOPE

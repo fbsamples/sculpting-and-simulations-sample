@@ -1,63 +1,117 @@
 # sculpting-and-simulations-sample
-is sample code that supplements the Sculpting and Simulations with 6DoF Controllers presentation at VRDC 2019.
+This repo contains sample code that supplements the talk "Sculpting and Simulations with 6DoF Controllers" presented at VRDC 2019.
 
-## Examples
-This code compiles in both C++ and GLSL. It is a header file only project, so it is recommended to wrap the #include in
-a namespace in C++.
+It contains code to deform meshes using regularized Kelvinlets, as well as using affine transformations. It also includes a suite of explicit ODE solvers. This code originated in Oculus Medium.
 
-On the C++ side:
+The code compiles in both C++ and GLSL, consisting of only header files.
+
+There is a small test project in the `test` directory. This deforms a mesh eight different ways both as a test and also as an example of how to use this code.
+
+## Example
+
+First, you need to `#include "deformation.h"`. In C++, it's recommended to wrap the `#include` in a namespace:
+
 ```
 using namespace deformation
 {
-#include "deformation.h"
+    #include "../code/deformation.h"
 };
+```
 
-... each frame, fill out the Deformation::Pose struct with the current state of the 6DoF controller
+Next, you need to create a `deformation::Pose` object once each frame from the 6DoF controller's state:
 
+```
+deformation::Pose pose;
+pose.translation = ovrPose.translation;
+pose.orientation = ovrPose.orientation;
+pose.scale = 1.0f;
+pose.time = gApp.getElapsedTime();
+```
+
+Then, you build the deformation/Kelvinlets data once per frame on the CPU:
+
+```
 deformation::Motion motion = buildMotion(previousFramePose, thisFramePose);
 deformation::Deformation deformation = buildDeformation(motion);
-deformation::Material material;
-material.stiffness = 1.0f;
-material.compressiblity = 0.5f;
-deformation::Kelvinlet kelvinlet = buildKelvinlet(deformation, material, radius);
+float stiffness = 1.0f;
+float compressibility = 0.5f;
+deformation::Kelvinlet kelvinlet = buildKelvinlet(deformation, stiffness, compressibility, radius);
+```
 
-float maxerror = 0.001f;
+Finally, we can deform the mesh. To deform the mesh each frame on the CPU, loop over your vertices and do a single RK4 integration:
 
+```
 for (uint i = 0; i < vertices.size(); i++)
 {
-    vertices[i] = deformation::deformKelvinlet(vertices[i], kelvinlet, material, stroke.innerRadius, maxerror);
+    vertices[i] = IntegrateNonElastic_RungeKutta(vertices[i], kelvinlet.time, kelvinlet.time+kelvinlet.dt, kelvinlet);
 }
 ```
 
-The above code will deform the vertices on the CPU.
-
-To enable GPU deformation, upload the Kelvinlet, Material, radius, and maxerror variables to the GPU. Then do this
-per-vertex:
+Alternatively, to deform a mesh on the GPU, upload the Kelvinlet struct to the GPU and do a single RK4 integration:
 ```
-#include "deformation.h"
-
-... in the vertex shader ...
-    KelvinletParameters parameters;
-    parameters.kelvinlet = kelvinlet;
-    parameters.material = material;
-    parameters.radius = radius;
-    position = Kelvinlets_AdaptiveBS32(position, kelvinlet.time, kelvinlet.time + kelvinlet.dt, parameters, maxerror);
+vertexpos = IntegrateNonElastic_RungeKutta(vertexpos, kelvinlet.time, kelvinlet.time+kelvinlet.dt, kelvinlet);
 ```
 
-For more in-depth examples, look in test/test/test.cpp and in code/deformers.h.
+For more in-depth examples, look in `test/test.cpp`.
 
 
 ## Requirements
-* Windows
-* Visual Studio 2017
+* This code has only been verified on Windows using Visual Studio 2017, but should run anywhere.
 
 ## Building
-There is a test executable that can be built with test/test.sln. Open that in Visual Studio 2017 and compile.
+There is a test project that can be built with test/test.sln. Open that in Visual Studio 2017 and compile.
 
 ## How this sample code works
-The code is a header file only project. It compiles in both C++ and GLSL.
+There are simple structures in `deforation.h` that contain the data needed for mesh deformation: `Pose`, `Motion`,
+`Deformation`, and `Kelvinlet`.
 
-To use in either C++ or GLSL, just `#include "deformation.h"`.
+To use continuous deformation, where every frame the mesh is deformed by movement from the previous frame to now, you should use a single R4 integration per frame. Use one of these functions for that:
+
+```
+IntegrateNonElastic_RungeKutta(vec3 position, float tstart, float tend, Deformation deformation);
+IntegrateKelvinlet_RungeKutta(vec3 position, float tstart, float tend, Kelvinlet kelvinlet);
+```
+
+For Medium move tool style deformation, where there are two keyframes, and the user freely move around the second keyframe, a single RK4 integration has far too much error. Instead, use one of the adaptive integrators. Use one of these functions for that:
+
+```
+IntegrateNonElastic_AdaptiveRKF45(vec3 position, float tstart, float tend, float maxerror, Deformation deformation);
+IntegrateNonElastic_AdaptiveDP54(vec3 position, float tstart, float tend, float maxerror, Deformation deformation);
+IntegrateNonElastic_AdaptiveBS32(vec3 position, float tstart, float tend, float maxerror, Deformation deformation);
+IntegrateKelvinlet_AdaptiveRKF45(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet);
+IntegrateKelvinlet_AdaptiveDP54(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet);
+IntegrateKelvinlet_AdaptiveBS32(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet);
+```
+
+There are also functions to blend two deformers. For continuous deformation using two deformers, use one of these functions:
+
+```
+IntegrateNonElasticTwoDeformers_RungeKutta(vec3 position, float tstart, float tend, Deformation deformation);
+IntegrateKelvinletTwoDeformers_RungeKutta(vec3 position, float tstart, float tend, Kelvinlet kelvinlet);
+```
+
+For Medium move tool style deformation with two blended deformers, use one of these functions:
+```
+IntegrateNonElasticTwoDeformers_AdaptiveRKF45(vec3 position, float tstart, float tend, float maxerror, Deformation
+deformation0, Deformation deformation1);
+IntegrateNonElasticTwoDeformers_AdaptiveDP54(vec3 position, float tstart, float tend, float maxerror, Deformation
+deformation0, Deformation deformation1);
+IntegrateNonElasticTwoDeformers_AdaptiveBS32(vec3 position, float tstart, float tend, float maxerror, Deformation
+deformation0, Deformation deformation1);
+IntegrateKelvinletTwoDeformers_AdaptiveRKF45(vec3 position, float tstart, float tend, float maxerror, Kelvinlet
+kelvinlet0, Kelvinlet kelvinlet1);
+IntegrateKelvinletTwoDeformers_AdaptiveDP54(vec3 position, float tstart, float tend, float maxerror, Kelvinlet
+kelvinlet0, Kelvinlet kelvinlet1);
+IntegrateKelvinletTwoDeformers_AdaptiveBS32(vec3 position, float tstart, float tend, float maxerror, Kelvinlet
+kelvinlet0, Kelvinlet kelvinlet1);
+```
+
+The different flavors of the `Adaptive*` functions have different tradeoffs in terms of performance.
+
+`maxerror` is very application specific. It is generally a good idea to set it to some small world space value. In
+Medium, which uses units of meters, `maxerror` is set to 0.00013f, but that is scaled as you scale your sculpt up and
+down. Larger values of maxerror are faster for the adaptive algorithms to compute, but generate more error.
+
 
 ## Questions?
 
