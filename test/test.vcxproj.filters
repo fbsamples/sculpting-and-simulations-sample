@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="SculptingAndSimulations">
+      <UniqueIdentifier>{d28123e3-e76f-44fa-9ba6-db62a8129d33}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\code\deformation.h">
+      <Filter>SculptingAndSimulations</Filter>
+    </ClInclude>
+    <ClInclude Include="..\code\deformers.h">
+      <Filter>SculptingAndSimulations</Filter>
+    </ClInclude>
+    <ClInclude Include="..\code\kelvinlets.h">
+      <Filter>SculptingAndSimulations</Filter>
+    </ClInclude>
+    <ClInclude Include="..\code\nonelastic.h">
+      <Filter>SculptingAndSimulations</Filter>
+    </ClInclude>
+    <ClInclude Include="..\code\odesolvers.h">
+      <Filter>SculptingAndSimulations</Filter>
+    </ClInclude>
+    <ClInclude Include="mathlib.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="test.cpp" />
+  </ItemGroup>
+</Project>
