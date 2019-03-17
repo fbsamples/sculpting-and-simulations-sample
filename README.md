@@ -66,8 +66,7 @@ For more in-depth examples, look in `test/test.cpp`. That test loads a mesh from
 There is a test project that can be built with test/test.sln. Open that in Visual Studio 2017 and compile.
 
 ## How this sample code works
-There are simple structures in `deforation.h` that contain the data needed for mesh deformation: `Pose`, `Motion`,
-`Deformation`, and `Kelvinlet`.
+There are simple structures in `deformation.h` that contain the data needed for mesh deformation: `Pose`, `Motion`, `Deformation`, and `Kelvinlet`.
 
 To use continuous deformation, where every frame the mesh is deformed by movement from the previous frame to now, you should use a single R4 integration per frame. Use one of these functions for that:
 
