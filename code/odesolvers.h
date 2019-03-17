@@ -335,7 +335,7 @@ INLINE vec3 SCOPE(_RungeKutta)(vec3 pos, float tstart, float tend, PARAMETERLIST
     return pos;
 }
 
-INLINE vec3 SCOPE(_StepDoubling)(vec3 pos, float tstart, float tend, float maxerror, PARAMETERLIST)
+INLINE vec3 SCOPE(_AdaptiveRK)(vec3 pos, float tstart, float tend, float maxerror, PARAMETERLIST)
 {
     // Runge Kutta, adaptive by taking a step and then two half-steps
 
