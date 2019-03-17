@@ -20,10 +20,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\code\deformation.h" />
+    <ClInclude Include="..\code\glslmathforcpp.h" />
     <ClInclude Include="..\code\kelvinlets.h" />
     <ClInclude Include="..\code\nonelastic.h" />
     <ClInclude Include="..\code\odesolvers.h" />
-    <ClInclude Include="mathlib.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="test.cpp">

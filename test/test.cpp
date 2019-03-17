@@ -5,25 +5,18 @@
 // LICENSE file in the root directory of this source tree.
 
 #include <cmath>
-#include "mathlib.h"
-
 namespace deformation
 {
-#include "../code/deformation.h"
+    #include "../code/deformation.h"
 };
 
-#include "stdio.h"
-#include "assert.h"
 #include <vector>
+#include "assert.h"
 
 using namespace std;
+using namespace deformation;
 
 using uint = unsigned int;
-
-float min(float a, float b) { return a < b ? a : b; };
-float max(float a, float b) { return a > b ? a : b; };
-int min(int a, int b) { return a < b ? a : b; };
-int max(int a, int b) { return a > b ? a : b; };
 
 struct Vertex
 {
@@ -269,8 +262,7 @@ int main()
 			if (falloff > 0.0f)
 			{
 				float endtime = lerp(deformation.time, deformation.time + deformation.dt, falloff);
-				float adjustedmaxerror = maxerror * (endtime - deformation.time);
-				mesh.vertices[i] = IntegrateNonElastic_AdaptiveBS32(mesh.vertices[i], deformation.time, endtime, adjustedmaxerror, deformation);
+				mesh.vertices[i] = IntegrateNonElastic_AdaptiveBS32(mesh.vertices[i], deformation.time, endtime, maxerror, deformation);
 			}
         }
 
@@ -312,8 +304,7 @@ int main()
 			if (falloff0 > 0.0f || falloff1 > 0.0f)
 			{
 				float endtime = lerp(righthanddeformation.time, righthanddeformation.time + righthanddeformation.dt, min(falloff0, falloff1));
-				float adjustedmaxerror = maxerror * (endtime - righthanddeformation.time);
-				mesh.vertices[i] = IntegrateNonElasticTwoDeformers_AdaptiveBS32(mesh.vertices[i], righthanddeformation.time, endtime, adjustedmaxerror, righthanddeformation, lefthanddeformation);
+				mesh.vertices[i] = IntegrateNonElasticTwoDeformers_AdaptiveBS32(mesh.vertices[i], righthanddeformation.time, endtime, maxerror, righthanddeformation, lefthanddeformation);
 
 				// when the falloff of one deformer is less than the falloff of the second deformer,
 				// then we need to integrate from the minfalloff to maxfalloff using the deformer
@@ -331,8 +322,7 @@ int main()
 					}
 					deformation.origin = deformation.origin + deformation.linearVelocity*(endtime - deformation.time);
 					endtime = lerp(deformation.time, deformation.time + deformation.dt, max(falloff0, falloff1));
-					float adjustedmaxerror = maxerror * (endtime - deformation.time);
-					mesh.vertices[i] = IntegrateNonElastic_AdaptiveBS32(mesh.vertices[i], starttime, endtime, adjustedmaxerror, deformation);
+					mesh.vertices[i] = IntegrateNonElastic_AdaptiveBS32(mesh.vertices[i], starttime, endtime, maxerror, deformation);
 				}
 			}
 		}
@@ -364,7 +354,7 @@ int main()
 
         for (uint i = 0; i < mesh.vertices.size(); i++)
         {
-			mesh.vertices[i] = IntegrateKelvinlets_AdaptiveBS32(mesh.vertices[i], kelvinlet.time, kelvinlet.time + kelvinlet.dt, maxerror*kelvinlet.dt, kelvinlet);
+			mesh.vertices[i] = IntegrateKelvinlets_AdaptiveBS32(mesh.vertices[i], kelvinlet.time, kelvinlet.time + kelvinlet.dt, maxerror, kelvinlet);
 		}
 
         writeobj("data\\testresult2.obj", mesh);
@@ -401,7 +391,7 @@ int main()
 
         for (uint i = 0; i < mesh.vertices.size(); i++)
         {
-			mesh.vertices[i] = IntegrateKelvinletsTwoDeformers_AdaptiveBS32(mesh.vertices[i], kelvinletrighthand.time, kelvinletrighthand.time + kelvinletrighthand.dt, maxerror*kelvinletrighthand.dt, kelvinletrighthand, kelvinletlefthand);
+			mesh.vertices[i] = IntegrateKelvinletsTwoDeformers_AdaptiveBS32(mesh.vertices[i], kelvinletrighthand.time, kelvinletrighthand.time + kelvinletrighthand.dt, maxerror, kelvinletrighthand, kelvinletlefthand);
 		}
 
         writeobj("data\\testresult3.obj", mesh);

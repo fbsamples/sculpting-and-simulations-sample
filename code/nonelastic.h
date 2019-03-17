@@ -4,10 +4,6 @@
 // This source code is licensed under the BSD - style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#ifdef __cplusplus
-#pragma once
-#endif 
-
 ///////////////////////////////////////////////////////
 // NonElastic (non-elastic) deformation
 // The following code is an affine transform (consisting

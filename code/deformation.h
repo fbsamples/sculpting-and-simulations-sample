@@ -5,12 +5,13 @@
 // LICENSE file in the root directory of this source tree.
 
 #ifdef __cplusplus
+#pragma once
 #define INLINE inline
 INLINE float min(float a, float b) { return a < b ? a : b; };
 INLINE float max(float a, float b) { return a > b ? a : b; };
 INLINE int min(int a, int b) { return a < b ? a : b; };
 INLINE int max(int a, int b) { return a > b ? a : b; };
-#pragma once
+#include "glslmathforcpp.h"
 #else
 // otherwise this assumes GLSL, which defines min()/max()
 #define INLINE

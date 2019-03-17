@@ -15,8 +15,10 @@
     <ClInclude Include="..\code\odesolvers.h">
       <Filter>SculptingAndSimulations</Filter>
     </ClInclude>
-    <ClInclude Include="mathlib.h" />
     <ClInclude Include="..\code\deformation.h">
+      <Filter>SculptingAndSimulations</Filter>
+    </ClInclude>
+    <ClInclude Include="..\code\glslmathforcpp.h">
       <Filter>SculptingAndSimulations</Filter>
     </ClInclude>
   </ItemGroup>

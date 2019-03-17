@@ -18,6 +18,8 @@ using namespace deformation
 };
 ```
 
+(if this results in many `identifier not found` compiler errors about `sqrt`, `atan2`, `pow`, etc., then first `#include <cmath>`).
+
 Next, you need to create a `deformation::Pose` object once each frame from the 6DoF controller's state:
 
 ```
@@ -38,22 +40,24 @@ float compressibility = 0.5f;
 deformation::Kelvinlet kelvinlet = buildKelvinlet(deformation, stiffness, compressibility, radius);
 ```
 
-Finally, we can deform the mesh. To deform the mesh each frame on the CPU, loop over your vertices and do a single RK4 integration:
+Finally, you can deform the mesh. To deform the mesh each frame on the CPU, loop over your vertices and do a single RK4 integration:
 
 ```
 for (uint i = 0; i < vertices.size(); i++)
 {
-    vertices[i] = IntegrateNonElastic_RungeKutta(vertices[i], kelvinlet.time, kelvinlet.time+kelvinlet.dt, kelvinlet);
+    vertices[i] = deformation::IntegrateNonElastic_RungeKutta(vertices[i], kelvinlet.time, kelvinlet.time+kelvinlet.dt, kelvinlet);
 }
 ```
 
-Alternatively, to deform a mesh on the GPU, upload the Kelvinlet struct to the GPU and do a single RK4 integration:
+Alternatively, to deform the mesh on the GPU, upload the Kelvinlet struct to the GPU and do a single RK4 integration:
+
 ```
+#include "deformation.h"
+
 vertexpos = IntegrateNonElastic_RungeKutta(vertexpos, kelvinlet.time, kelvinlet.time+kelvinlet.dt, kelvinlet);
 ```
 
-For more in-depth examples, look in `test/test.cpp`.
-
+For more in-depth examples, look in `test/test.cpp`. That test loads a mesh from disk, deforms it eight different ways, and writes each deformed mesh as an .OBJ file to `test/data/testresultN.obj`.
 
 ## Requirements
 * This code has only been verified on Windows using Visual Studio 2017, but should run anywhere.
@@ -92,26 +96,19 @@ IntegrateKelvinletTwoDeformers_RungeKutta(vec3 position, float tstart, float ten
 
 For Medium move tool style deformation with two blended deformers, use one of these functions:
 ```
-IntegrateNonElasticTwoDeformers_AdaptiveRKF45(vec3 position, float tstart, float tend, float maxerror, Deformation
-deformation0, Deformation deformation1);
-IntegrateNonElasticTwoDeformers_AdaptiveDP54(vec3 position, float tstart, float tend, float maxerror, Deformation
-deformation0, Deformation deformation1);
-IntegrateNonElasticTwoDeformers_AdaptiveBS32(vec3 position, float tstart, float tend, float maxerror, Deformation
-deformation0, Deformation deformation1);
-IntegrateKelvinletTwoDeformers_AdaptiveRKF45(vec3 position, float tstart, float tend, float maxerror, Kelvinlet
-kelvinlet0, Kelvinlet kelvinlet1);
-IntegrateKelvinletTwoDeformers_AdaptiveDP54(vec3 position, float tstart, float tend, float maxerror, Kelvinlet
-kelvinlet0, Kelvinlet kelvinlet1);
-IntegrateKelvinletTwoDeformers_AdaptiveBS32(vec3 position, float tstart, float tend, float maxerror, Kelvinlet
-kelvinlet0, Kelvinlet kelvinlet1);
+IntegrateNonElasticTwoDeformers_AdaptiveRKF45(vec3 position, float tstart, float tend, float maxerror, Deformation deformation0, Deformation deformation1);
+IntegrateNonElasticTwoDeformers_AdaptiveDP54(vec3 position, float tstart, float tend, float maxerror, Deformation deformation0, Deformation deformation1);
+IntegrateNonElasticTwoDeformers_AdaptiveBS32(vec3 position, float tstart, float tend, float maxerror, Deformation deformation0, Deformation deformation1);
+IntegrateKelvinletTwoDeformers_AdaptiveRKF45(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet0, Kelvinlet kelvinlet1);
+IntegrateKelvinletTwoDeformers_AdaptiveDP54(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet0, Kelvinlet kelvinlet1);
+IntegrateKelvinletTwoDeformers_AdaptiveBS32(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet0, Kelvinlet kelvinlet1);
 ```
 
 The different flavors of the `Adaptive*` functions have different tradeoffs in terms of performance.
 
 `maxerror` is very application specific. It is generally a good idea to set it to some small world space value. In
 Medium, which uses units of meters, `maxerror` is set to 0.00013f, but that is scaled as you scale your sculpt up and
-down. Larger values of maxerror are faster for the adaptive algorithms to compute, but generate more error.
-
+down. Larger values of maxerror are faster for the adaptive algorithms to compute, but return less accurate answers.
 
 ## Questions?
 
