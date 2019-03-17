@@ -9,6 +9,9 @@ There is a small test project in the `test` directory. This deforms a mesh eight
 
 For additional notes on the ODE solvers, see the included document [NotesOnODESolvers.pdf](NotesOnODESolvers.pdf).
 
+For information on how the Kelvinlets equations were calibrated, see the included document [KelvinletsCalibration.pdf](KelvinletsCalibration.pdf).
+
+
 ## Example
 
 First, you need to `#include "deformation.h"`. In C++, it's recommended to wrap the `#include` in a namespace:
