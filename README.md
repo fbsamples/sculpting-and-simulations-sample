@@ -7,6 +7,8 @@ The code compiles in both C++ and GLSL, consisting of only header files.
 
 There is a small test project in the `test` directory. This deforms a mesh eight different ways both as a test and also as an example of how to use this code.
 
+For additional notes on the ODE solvers, see the included document [NotesOnODESolvers.pdf](NotesOnODESolvers.pdf).
+
 ## Example
 
 First, you need to `#include "deformation.h"`. In C++, it's recommended to wrap the `#include` in a namespace:
