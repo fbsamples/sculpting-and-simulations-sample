@@ -15,6 +15,7 @@ INLINE int max(int a, int b) { return a > b ? a : b; };
 #else
 // otherwise this assumes GLSL, which defines min()/max()
 #define INLINE
+struct quat { float r, i, j, k; };
 #endif
 
 struct Pose
