@@ -1,4 +1,7 @@
 # sculpting-and-simulations-sample
+
+![deformation](deformation.gif)
+
 This repo contains sample code that supplements the talk "Sculpting and Simulations with 6DoF Controllers" presented at VRDC 2019.
 
 It contains code to deform meshes using regularized Kelvinlets, as well as using affine transformations. It also includes several flavors of explicit ODE solvers. This code originated in Oculus Medium.
@@ -7,9 +10,9 @@ The code compiles in both C++ and GLSL, consisting of only header files.
 
 There is a small test project in the `test` directory. This deforms a mesh eight different ways both as a test and also as an example of how to use this code.
 
-For additional notes on the ODE solvers, see the included document [NotesOnODESolvers.pdf](NotesOnODESolvers.pdf).
+For additional notes on the ODE solvers, see the included document [NotesOnODESolvers.pdf](NotesOnODESolvers.pdf?raw=true).
 
-For information on how the Kelvinlets equations were calibrated, see the included document [KelvinletsCalibration.pdf](KelvinletsCalibration.pdf).
+For information on how the Kelvinlets equations were calibrated, see the included document [KelvinletsCalibration.pdf](KelvinletsCalibration.pdf?raw=true).
 
 
 ## Example
@@ -77,7 +80,7 @@ To use continuous deformation, where every frame the mesh is deformed by movemen
 
 ```
 IntegrateNonElastic_RungeKutta(vec3 position, float tstart, float tend, Deformation deformation);
-IntegrateKelvinlets_RungeKutta(vec3 position, float tstart, float tend, Kelvinlet kelvinlet);
+IntegrateKelvinlet_RungeKutta(vec3 position, float tstart, float tend, Kelvinlet kelvinlet);
 ```
 
 For Medium move tool style deformation, where there are two keyframes, and the user freely move around the second keyframe, a single RK4 integration has far too much error. Instead, use one of the adaptive integrators. Use one of these functions for that:
@@ -87,17 +90,17 @@ IntegrateNonElastic_AdaptiveRK(vec3 position, float tstart, float tend, float ma
 IntegrateNonElastic_AdaptiveRKF45(vec3 position, float tstart, float tend, float maxerror, Deformation deformation);
 IntegrateNonElastic_AdaptiveDP54(vec3 position, float tstart, float tend, float maxerror, Deformation deformation);
 IntegrateNonElastic_AdaptiveBS32(vec3 position, float tstart, float tend, float maxerror, Deformation deformation);
-IntegrateKelvinlets_AdaptiveRK(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet);
-IntegrateKelvinlets_AdaptiveRKF45(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet);
-IntegrateKelvinlets_AdaptiveDP54(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet);
-IntegrateKelvinlets_AdaptiveBS32(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet);
+IntegrateKelvinlet_AdaptiveRK(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet);
+IntegrateKelvinlet_AdaptiveRKF45(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet);
+IntegrateKelvinlet_AdaptiveDP54(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet);
+IntegrateKelvinlet_AdaptiveBS32(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet);
 ```
 
 There are also functions to blend two deformers. For continuous deformation using two deformers, use one of these functions:
 
 ```
 IntegrateNonElasticTwoDeformers_RungeKutta(vec3 position, float tstart, float tend, Deformation deformation);
-IntegrateKelvinletsTwoDeformers_RungeKutta(vec3 position, float tstart, float tend, Kelvinlet kelvinlet);
+IntegrateKelvinletTwoDeformers_RungeKutta(vec3 position, float tstart, float tend, Kelvinlet kelvinlet);
 ```
 
 For Medium move tool style deformation with two blended deformers, use one of these functions:
@@ -106,10 +109,10 @@ IntegrateNonElasticTwoDeformers_AdaptiveRK(vec3 position, float tstart, float te
 IntegrateNonElasticTwoDeformers_AdaptiveRKF45(vec3 position, float tstart, float tend, float maxerror, Deformation deformation0, Deformation deformation1);
 IntegrateNonElasticTwoDeformers_AdaptiveDP54(vec3 position, float tstart, float tend, float maxerror, Deformation deformation0, Deformation deformation1);
 IntegrateNonElasticTwoDeformers_AdaptiveBS32(vec3 position, float tstart, float tend, float maxerror, Deformation deformation0, Deformation deformation1);
-IntegrateKelvinletsTwoDeformers_AdaptiveRK(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet0, Kelvinlet kelvinlet1);
-IntegrateKelvinletsTwoDeformers_AdaptiveRKF45(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet0, Kelvinlet kelvinlet1);
-IntegrateKelvinletsTwoDeformers_AdaptiveDP54(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet0, Kelvinlet kelvinlet1);
-IntegrateKelvinletsTwoDeformers_AdaptiveBS32(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet0, Kelvinlet kelvinlet1);
+IntegrateKelvinletTwoDeformers_AdaptiveRK(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet0, Kelvinlet kelvinlet1);
+IntegrateKelvinletTwoDeformers_AdaptiveRKF45(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet0, Kelvinlet kelvinlet1);
+IntegrateKelvinletTwoDeformers_AdaptiveDP54(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet0, Kelvinlet kelvinlet1);
+IntegrateKelvinletTwoDeformers_AdaptiveBS32(vec3 position, float tstart, float tend, float maxerror, Kelvinlet kelvinlet0, Kelvinlet kelvinlet1);
 ```
 
 The different flavors of the `Adaptive*` functions have different tradeoffs in terms of performance. Medium uses AdaptiveBS32.
