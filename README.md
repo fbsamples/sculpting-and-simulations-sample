@@ -1,10 +1,10 @@
 # sculpting-and-simulations-sample
 
-![deformation](https://github.com/fbsamples/sculpting-and-simulations-sample/releases/latest/downloads/deformation.gif)
+![deformation](https://github.com/fbsamples/sculpting-and-simulations-sample/releases/latest/download/deformation.gif)
 
 This repo contains sample code that supplements the talk "Sculpting and Simulations with 6DoF Controllers" presented at VRDC 2019.
 
-The slides from the talk (with video + speaker notes) can be downloaded at [SculptingAndSimulations.pptx](https://github.com/fbsamples/sculpting-and-simulations-sample/releases/latest/downloads/SculptingAndSimulations.pptx)
+The slides from the talk (with video + speaker notes) can be downloaded at [SculptingAndSimulations.pptx](https://github.com/fbsamples/sculpting-and-simulations-sample/releases/latest/download/SculptingAndSimulations.pptx)
 
 This sample code shows how to deform meshes using regularized Kelvinlets, as well as using affine transformations. It also includes several flavors of explicit ODE solvers. This code originated in Oculus Medium.
 
