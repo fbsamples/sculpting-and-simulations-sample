@@ -1,8 +1,6 @@
 # sculpting-and-simulations-sample
 
-<p align="center">
-  <img src="https://github.com/fbsamples/sculpting-and-simulations-sample/releases/latest/download/deformation.gif"/>
-</p>
+![deformation](https://user-images.githubusercontent.com/6667377/55200209-5d055000-517a-11e9-8f6d-476a58e19509.gif)
 
 This repo contains sample code that supplements the talk "Sculpting and Simulations with 6DoF Controllers" presented at VRDC 2019.
 
